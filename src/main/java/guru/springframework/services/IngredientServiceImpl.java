@@ -38,27 +38,15 @@ public class IngredientServiceImpl implements IngredientService {
     @Override
     public Mono<IngredientCommand> findByRecipeIdAndIngredientId(String recipeId, String ingredientId) {
 
-        Recipe recipe = recipeRepository.findById(recipeId).block();
-
-        if (recipe == null){
-            //todo impl error handling
-            log.error("recipe id not found. Id: " + recipeId);
-        }
-
-        Optional<IngredientCommand> ingredientCommandOptional = recipe.getIngredients().stream()
-                .filter(ingredient -> ingredient.getId().equals(ingredientId))
-                .map( ingredient -> ingredientToIngredientCommand.convert(ingredient)).findFirst();
-
-        if(!ingredientCommandOptional.isPresent()){
-            //todo impl error handling
-            log.error("Ingredient id not found: " + ingredientId);
-        }
-
-        //enhance command object with recipe id
-        IngredientCommand ingredientCommand = ingredientCommandOptional.get();
-        ingredientCommand.setRecipeId(recipe.getId());
-
-        return Mono.just(ingredientCommandOptional.get());
+        return recipeRepository.findById(recipeId)
+            .flatMapIterable(Recipe::getIngredients)
+            .filter(ingredient -> ingredient.getId().equalsIgnoreCase(ingredientId))
+            .single()
+            .map(ingredient -> {
+                IngredientCommand ingredientCommand = ingredientToIngredientCommand.convert(ingredient);
+                ingredientCommand.setRecipeId(recipeId);
+                return ingredientCommand;
+            });
     }
 
     @Override
